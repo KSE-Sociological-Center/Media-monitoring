@@ -45,7 +45,7 @@ monitoring_df[, month_year := format(`Дата виходу`, "%Y-%m")]
 
 
 # 3. OpenAI Config & Helper
-api_key <- "YOUR-API-KEY"
+api_key <- "your-api-key"
 hey_chatGPT <- function(prompt, model) {
   response <- httr2::request("https://api.openai.com/v1/chat/completions") %>%
     httr2::req_headers(
@@ -407,7 +407,7 @@ filtered_df[
 
 
 
-# Step. Quality of reporting
+# Step. Quality of reporting --------------------------------
 # Replace with your actual text vector
 texts <- filtered_df$Текст
 
@@ -732,24 +732,24 @@ feb_metadata_plot <- ggplot(feb_meta_long, aes(x = reorder(label, share), y = sh
   geom_text(
     aes(label = percent(share, accuracy = 1)),
     hjust = -0.1,
-    size  = 3
+    size  = 4
   ) +
   scale_y_continuous(
     labels = percent_format(accuracy = 1),
     limits = c(0, 1.1 * max(feb_meta_long$share))
   ) +
   labs(
-    title = "Частка новин у лютому, що згадують методологічну інформацію",
+    title = NULL,
     x     = NULL,
     y     = "Частка новин (% від кількості лютого)"
   ) +
   coord_flip() +
   theme_minimal() +
   theme(
-    axis.text.y = element_text(size = 11),
-    axis.text.x = element_text(size = 10),
-    plot.title  = element_text(size = 14, face = "bold")
-  )
+    axis.text.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12),
+    axis.title.y = element_text(size = 13),
+    axis.title.x = element_text(size = 13)  )
 
 # 4.4. Збереження
 ggsave(
@@ -812,368 +812,17 @@ ggsave(filename = "top20_organizations.png", plot = org_plot, width = 8,
 
 
 
+write.csv(final_df, 'final.csv')
 
-#### Test pipeline 
-
-copy_df <- filtered_df
-
-# Before running the full pipeline, let's check your data
-cat("Checking your data structure...\n")
-cat("Column names:", names(copy_df), "\n")
-cat("Number of rows:", nrow(copy_df), "\n")
-
-# Check the organisation column specifically
-if ("organisation" %in% names(copy_df)) {
-  org_values <- copy_df$organisation
-  cat("Organisation column:\n")
-  cat("  Total values:", length(org_values), "\n")
-  cat("  NA values:", sum(is.na(org_values)), "\n")
-  cat("  Empty values:", sum(org_values == "", na.rm = TRUE), "\n")
-  cat("  Sample values:", head(org_values[!is.na(org_values) & org_values != ""], 5), "\n")
-} else {
-  cat("ERROR: 'organisation' column not found!\n")
-  cat("Available columns:", paste(names(copy_df), collapse = ", "), "\n")
-}
-
-# Now try the pipeline
-result <- process_organizations(copy_df, "organisation")
-
-# Enhanced Organization Normalization Pipeline
-# Reduces manual work through automated similarity detection and validation
-
-# 1. Enhanced Text Normalization Function ===============================
-normalize_organization <- function(text) {
-  # Handle vectorized input
-  result <- character(length(text))
-  
-  for (i in seq_along(text)) {
-    current_text <- text[i]
-    
-    # Check for NA, empty, or "ні"
-    if (is.na(current_text) || current_text == "" || tolower(current_text) == "ні") {
-      result[i] <- NA_character_
-      next
-    }
-    
-    # Convert to lowercase and remove extra whitespace
-    current_text <- str_trim(tolower(current_text))
-    
-    # Remove common punctuation and quotes
-    current_text <- str_replace_all(current_text, '["""«».,;:()\\[\\]{}]', '')
-    
-    # Standardize common abbreviations
-    abbrev_map <- c(
-      "\\bцентр\\b" = "центр",
-      "\\bінститут\\b" = "інститут", 
-      "\\bміністерство\\b" = "мін",
-      "\\bкомітет\\b" = "ком",
-      "\\bслужба\\b" = "служба",
-      "\\bагентство\\b" = "агентство",
-      "\\bфонд\\b" = "фонд",
-      "\\bгрупа\\b" = "група",
-      "\\bлабораторія\\b" = "лаб",
-      "\\bдослідження\\b" = "дослід",
-      "\\bсоціологічний\\b" = "соціол",
-      "\\bопитування\\b" = "опит"
-    )
-    
-    for (pattern in names(abbrev_map)) {
-      current_text <- str_replace_all(current_text, pattern, abbrev_map[[pattern]])
-    }
-    
-    # Remove country suffixes
-    current_text <- str_remove_all(current_text, '\\s+(україни|ukraine|ua)$')
-  }}
-
-# 2. Automated Organization Validation ===================================
-validate_organizations_batch <- function(orgs, batch_size = 50) {
-      # Remove duplicates and NAs
-      unique_orgs <- unique(orgs[!is.na(orgs) & orgs != ""])
-      
-      # Process in batches to avoid token limits
-      batches <- split(unique_orgs, ceiling(seq_along(unique_orgs) / batch_size))
-      
-      all_results <- list()
-      
-      for (i in seq_along(batches)) {
-        batch <- batches[[i]]
-        
-        # Create batch prompt
-        org_list <- paste(paste0(seq_along(batch), ". ", batch), collapse = "\n")
-        
-        prompt <- paste0(
-          "Для кожної назви визнач, чи це конкретна організація/установа/ЗМІ:\n\n",
-          org_list, "\n\n",
-          "Відповідай у форматі JSON:\n",
-          '{"results": [{"index": 1, "is_organization": true/false, "clean_name": "назва або null"}]}\n\n',
-          "is_organization = true тільки для конкретних назв організацій, установ, ЗМІ.\n",
-          "clean_name = стандартизована назва або null якщо не організація."
-        )
-        
-        response <- request_with_retry(prompt, "gpt-4o")
-        
-        # Parse JSON response
-        tryCatch({
-          parsed <- fromJSON(response)
-          batch_results <- data.table(
-            original = batch,
-            is_valid = parsed$results$is_organization,
-            clean_name = parsed$results$clean_name
-          )
-          all_results[[i]] <- batch_results
-        }, error = function(e) {
-          # Fallback: individual processing
-          individual_results <- future_lapply(batch, function(org) {
-            simple_prompt <- paste0(
-              "Чи є '", org, "' назвою конкретної організації/установи/ЗМІ? Відповідь: Так/Ні"
-            )
-            resp <- request_with_retry(simple_prompt, "gpt-4o-mini")
-            is_valid <- str_detect(tolower(resp), "так")
-            list(original = org, is_valid = is_valid, clean_name = if(is_valid) org else NA)
-          })
-          all_results[[i]] <- rbindlist(individual_results)
-        })
-        
-        # Progress tracking
-        cat("Processed batch", i, "of", length(batches), "\n")
-      }
-      
-      # Combine all results
-      rbindlist(all_results)
-    }
-    
-# 3. Automated Similarity Clustering ====================================
-find_similar_organizations <- function(org_names, similarity_threshold = 0.8) {
-      # Remove very short names (likely acronyms that shouldn't be merged)
-      long_names <- org_names[nchar(org_names) > 3]
-      
-      # Calculate similarity matrix using multiple methods
-      n <- length(long_names)
-      similarity_matrix <- matrix(0, n, n)
-      
-      for (i in 1:(n-1)) {
-        for (j in (i+1):n) {
-          name1 <- long_names[i]
-          name2 <- long_names[j]
-          
-          # Jaccard similarity (word-based)
-          words1 <- str_split(name1, "\\s+")[[1]]
-          words2 <- str_split(name2, "\\s+")[[1]]
-          jaccard <- length(intersect(words1, words2)) / length(union(words1, words2))
-          
-          # Substring inclusion
-          substring_sim <- (str_detect(name1, fixed(name2)) || str_detect(name2, fixed(name1))) * 0.5
-          
-          # Edit distance (normalized)
-          edit_dist <- 1 - (adist(name1, name2) / max(nchar(name1), nchar(name2)))
-          
-          # Combined similarity
-          combined_sim <- max(jaccard, substring_sim, edit_dist)
-          similarity_matrix[i, j] <- similarity_matrix[j, i] <- combined_sim
-        }
-      }
-      
-      # Find clusters using simple thresholding
-      clusters <- list()
-      used <- rep(FALSE, n)
-      
-      for (i in 1:n) {
-        if (used[i]) next
-        
-        # Find similar names
-        similar_indices <- which(similarity_matrix[i, ] > similarity_threshold)
-        similar_indices <- c(i, similar_indices[!used[similar_indices]])
-        
-        if (length(similar_indices) > 1) {
-          cluster_names <- long_names[similar_indices]
-          # Choose shortest name as canonical
-          canonical <- cluster_names[which.min(nchar(cluster_names))]
-          clusters[[length(clusters) + 1]] <- list(
-            canonical = canonical,
-            variants = cluster_names
-          )
-          used[similar_indices] <- TRUE
-        }
-      }
-      
-      return(clusters)
-    }
-    
-# 4. GPT-based Cluster Validation =======================================
-validate_clusters <- function(clusters, batch_size = 10) {
-      validated_clusters <- list()
-      
-      # Process clusters in batches
-      cluster_batches <- split(clusters, ceiling(seq_along(clusters) / batch_size))
-      
-      for (batch in cluster_batches) {
-        # Prepare batch prompt
-        cluster_descriptions <- sapply(batch, function(cluster) {
-          paste0("Кандидати: ", paste(cluster$variants, collapse = ", "))
-        })
-        
-        prompt <- paste0(
-          "Перевір, чи позначають ці групи назв одну організацію:\n\n",
-          paste(paste0(seq_along(cluster_descriptions), ". ", cluster_descriptions), collapse = "\n"),
-          "\n\nВідповідь у форматі JSON:\n",
-          '{"validations": [{"index": 1, "is_same_org": true/false, "canonical": "назва"}]}'
-        )
-        
-        response <- request_with_retry(prompt, "gpt-4o")
-        
-        tryCatch({
-          parsed <- fromJSON(response)
-          for (i in seq_along(parsed$validations)) {
-            validation <- parsed$validations[[i]]
-            if (validation$is_same_org) {
-              cluster_idx <- validation$index
-              validated_clusters[[length(validated_clusters) + 1]] <- list(
-                canonical = validation$canonical,
-                variants = batch[[cluster_idx]]$variants
-              )
-            }
-          }
-        }, error = function(e) {
-          cat("Error processing cluster batch, skipping...\n")
-        })
-      }
-      
-      return(validated_clusters)
-    }
-    
-# 5. Main Pipeline Function =============================================
-process_organizations <- function(df, org_column = "organisation") {
-      cat("Starting organization normalization pipeline...\n")
-      
-      # Step 1: Initial normalization
-      cat("Step 1: Normalizing organization names...\n")
-      df[, org_normalized := normalize_organization(get(org_column))]
-      
-      # Step 2: Validate organizations in batches
-      cat("Step 2: Validating organizations...\n")
-      validation_results <- validate_organizations_batch(df$org_normalized)
-      
-      # Create mapping table
-      setkey(validation_results, original)
-      df[, `:=`(
-        org_valid = validation_results[J(org_normalized), is_valid],
-        org_clean = validation_results[J(org_normalized), clean_name]
-      )]
-      
-      # Keep only valid organizations
-      valid_orgs <- df[org_valid == TRUE, unique(org_clean)]
-      valid_orgs <- valid_orgs[!is.na(valid_orgs)]
-      
-      # Step 3: Find similar organizations
-      cat("Step 3: Finding similar organizations...\n")
-      clusters <- find_similar_organizations(valid_orgs)
-      
-      # Step 4: Validate clusters with GPT
-      if (length(clusters) > 0) {
-        cat("Step 4: Validating clusters...\n")
-        validated_clusters <- validate_clusters(clusters)
-        
-        # Create final mapping
-        final_mapping <- data.table(variant = character(), canonical = character())
-        
-        for (cluster in validated_clusters) {
-          cluster_mapping <- data.table(
-            variant = cluster$variants,
-            canonical = cluster$canonical
-          )
-          final_mapping <- rbind(final_mapping, cluster_mapping)
-        }
-        
-        # Apply final mapping
-        setkey(final_mapping, variant)
-        df[, org_final := {
-          mapped <- final_mapping[J(org_clean), canonical]
-          fifelse(is.na(mapped), org_clean, mapped)
-        }]
-      } else {
-        df[, org_final := org_clean]
-      }
-      
-      # Step 5: Generate frequency report
-      cat("Step 5: Generating frequency report...\n")
-      freq_report <- df[!is.na(org_final), .N, by = org_final][order(-N)]
-      
-      cat("Pipeline completed!\n")
-      cat("Valid organizations found:", nrow(freq_report), "\n")
-      cat("Top 10 organizations:\n")
-      print(freq_report[1:min(10, nrow(freq_report))])
-      
-      return(list(
-        data = df,
-        frequency_report = freq_report,
-        clusters_found = length(validated_clusters)
-      ))
-    }
-    
-# 6. Usage Example =====================================================
-# Apply the pipeline to your data
-result <- process_organizations(copy_df, "organisation")
-processed_df <- result$data
-freq_report <- result$frequency_report
-
-# Save results
-save_partial_results(processed_df, "organizations_processed")
-
-
-
-# Дані
-orgs <- data.frame(
-  name = c('київський міжнародний інститут соціології', 'рейтинг', 'yougov', 'socis', 'мінфін', 
-           'reuters', 'юнісеф', 'червоний хрест', 'центр разумкова', 'європейська бізнес асоціація', 
-           'міністерство освіти і науки', 'info sapiens', 'фонд демократичні ініціативи', 
-           'rating lab', 'український ветеранський фонд', 'pew research center', 
-           'gallup', 'forsa', 'національний банк', 'imi', 'opinia24'),
-  count = c(535, 152, 87, 80, 73, 52, 31, 31, 29, 27, 26, 26, 24, 24, 22, 21, 21, 21, 17, 17, 17),
-  role = c('виконавець', 'виконавець', 'виконавець', 'виконавець', 'замовник',
-           'замовник', 'замовник', 'замовник', 'виконавець', 'замовник',
-           'замовник', 'виконавець', 'виконавець',
-           'виконавець', 'замовник', 'виконавець',
-           'виконавець', 'виконавець', 'замовник', 'виконавець', 'виконавець')
-)
-
-# Загальна кількість
-total <- 3511
-
-# Обчислення часток
-orgs$percentage <- round(orgs$count / total * 100, 2)
-
-# Побудова графіку
-# Побудова графіку з підписами та кольором deepskyblue
-org_plot <- ggplot(orgs, aes(x = reorder(name, count), y = percentage, fill = role)) +
-  geom_col() +
-  geom_text(
-    aes(label = paste0(round(percentage, 1), "%")),  # округлюємо для міток на стовпчиках
-    hjust = -0.1,
-    size = 3
-  ) +
-  scale_fill_manual(values = c("виконавець" = "deepskyblue", "замовник" = "salmon")) +
-  scale_y_continuous(
-    labels = function(x) paste0(round(x), "%"),  # округлені мітки на осі Y
-    limits = c(0, max(orgs$percentage) * 1.1),
-    expand = expansion(mult = c(0, 0.02))
-  ) +
-  coord_flip() +
-  labs(
-    title = "Частка згадок виконавців та замовників досліджень у лютому 2025 року",
-    x = NULL,
-    y = "Частка (%)",
-    fill = NULL  # <- прибирає заголовок легенди
-  ) +
-  theme_minimal(base_family = "Arial") +
-  theme(
-    axis.text.y = element_text(size = 10),
-    plot.title = element_text(size = 14, face = "bold")
-  )
-
-# Відобразити графік
-print(org_plot)
-
-# Зберегти як PNG
-ggsave(filename = "orgs_share_plot.png", plot = org_plot, width = 12, 
-       height = 8, dpi      = 300)
-
+final_df <- feb_df %>% 
+  rename(
+    organisation_name_raw = organisation,
+    organisation_name_clean = org_final
+  ) %>%
+  rename_with(
+    .cols = c("survey_focus", "sponsor", "survey_org", "dates", "population", "sample_size",
+              "sampling_method", "margin_of_error", "weighting", 
+              "survey_mode", "question_text", "percentages"),
+    .fn = ~ paste0(.x, "_check")
+  ) %>% 
+  select(-c(org_clean, org_clean_1))
