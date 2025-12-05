@@ -116,9 +116,6 @@ monitoring_df[, survey_focus := unlist(future_lapply(Текст, function(txt) {
 })
 )]
 
-#збереження для ручної валідації (прибрати)
-#save_partial_results(test_df[, .(Текст, URL, survey_focus)], prefix = "survey_focus")
-
 
 # keep only those with focus == "Так"
 filtered_df <- monitoring_df[survey_focus == "Так"]
@@ -135,32 +132,6 @@ filtered_df[, `:=`(
 )]
 
 # 2) Один промпт для двох задач: вказати організації і тему
-
-# prompt_combined <- paste(
-#   "1) Знайди всі згадані у тексті організації, центри, компанії, групи чи інститути, які
-#   - проводили, публікували або оголошували результати соціологічного опитування;
-#   - могли бути названі як автори, організатори, виконавці, соціологічні центри, дослідницькі компанії, аналітичні організації.
-# 
-#   Не має значення, як саме це сформульовано у тексті — провело опитування, оприлюднило результати, за даними центру…, соціологи з …, згідно з опитуванням тощо.
-#   Якщо організація фігурує як така, що **проводила або публікувала опитування**, — додай її до списку.
-# 
-#   Не включай:
-#   - медіа (сайти, телеканали, газети тощо), які просто перепублікували матеріал;
-#   - соціальні мережі, сторінки, блогерів, приватних осіб без ознак інституції.
-# 
-#   Якщо знайдено більше двох таких організацій — обери **дві найважливіші**.
-#   Найважливішими вважай ті, що:
-#   1. прямо згадані у зв’язку з проведенням або публікацією опитування;
-#   2. мають найбільшу відомість або більшу роль у контексті тексту (наприклад, основний виконавець, а не партнер).
-# 
-#   Виведи результат у форматі `Хто проводив: <назва1>; <назва2>`,
-#   якщо в тексті немає жодної такої організації, поверни: `Хто проводив:`\n\n",
-# 
-#   "2) Одним реченням дай коротку тему опитування у форматі `Тема: <тема>`.",
-# 
-#   "Відповідай рівно двома рядками, без жодних інших пояснень.",
-#   sep = "\n\n"
-# )
 
 prompt_combined <- paste(
   "Ти — аналітичний асистент. Твоє завдання — вилучити з тексту дані про походження соціологічного дослідження.
@@ -244,6 +215,7 @@ save_partial_results(filtered_df, prefix = "filtered_opituvalni_final")
 
 
 
+
 # Step 3: Нормалізація назв організацій за словником
 
 # 1. Зчитуємо словник організацій
@@ -265,6 +237,7 @@ filtered_df[, org2_final := org_dict$org_final[match(org2, org_dict$organisation
 # 4. якщо не знайдено у словнику - NA
 filtered_df[is.na(org1_final), org1_final := NA_character_]
 filtered_df[is.na(org2_final), org2_final := NA_character_]
+
 
 
 
@@ -330,22 +303,22 @@ for (i in 1:(length(grouped_names) - 1)) {
   prev_name <- grouped_names[i]
   next_name <- grouped_names[i + 1]
   
-  # prompt <- paste0(
-  #   "Порівняйте наступні дві назви організацій:\n",
-  #   "1) '", prev_name, "'\n",
-  #   "2) '", next_name, "'\n\n",
-  #   "Якщо ці назви позначають ту ж саму організацію, і одна з них є коротшою, поверніть коротшу назву. ",
-  #   "Якщо це різні організації, поверніть першу назву."
-  # )
-  
   prompt <- paste0(
-  "Persona: Ти — експерт з нормалізації даних та розпізнавання сутностей.
-  Завдання: Визнач, чи позначають ці два рядки одну й ту ж організацію (враховуючи абревіатури, переклади чи дрібні відмінності):\n",
-  "1) '", prev_name, "'\n",
-  "2) '", next_name, "'\n\n",
-  "Логіка вибору: — Якщо це ОДНА організація: поверни ту назву, яка є коротшою. — Якщо це РІЗНІ організації: поверни першу назву.
-  Формат: Поверни лише обраний рядок тексту без лапок і пояснень."
+    "Порівняйте наступні дві назви організацій:\n",
+    "1) '", prev_name, "'\n",
+    "2) '", next_name, "'\n\n",
+    "Якщо ці назви позначають ту ж саму організацію, і одна з них є коротшою, поверніть коротшу назву. ",
+    "Якщо це різні організації, поверніть першу назву."
   )
+  
+  # prompt <- paste0(
+  # "Persona: Ти — експерт з нормалізації даних та розпізнавання сутностей.
+  # Завдання: Визнач, чи позначають ці два рядки одну й ту ж організацію (враховуючи абревіатури, переклади чи дрібні відмінності):\n",
+  # "1) '", prev_name, "'\n",
+  # "2) '", next_name, "'\n\n",
+  # "Логіка вибору: — Якщо це ОДНА організація: поверни ту назву, яка є коротшою. — Якщо це РІЗНІ організації: поверни першу назву.
+  # Формат: Поверни лише обраний рядок тексту без лапок і пояснень."
+  # )
   
   response <- hey_chatGPT(prompt, "gpt-4o")
   response <- trimws(tolower(response))
@@ -443,7 +416,6 @@ filtered_df[is.na(org2_final), org2_final := org2_semifinal]
 
 
 #ПЕРЕТВОРЕННЯ
-
 # Прибираємо org2_final, якщо org1_final = org2_final
 filtered_df[org1_final == org2_final, org2_final := NA]
 
@@ -455,122 +427,12 @@ filtered_df[is.na(org1_final) & !is.na(org2_final), `:=`(
 
 
 #уся таблиця організацій ПІСЛЯ перетворень
-filtered_df %>% select(organisation, org1, org2, org1_final, org2_final, org1_semifinal, org2_semifinal, org1_clean_1, org2_clean_1) %>% sample_n(120) %>% view()
+filtered_df %>% select(organisation, org1, org2, org1_final, org2_final, org1_semifinal, org2_semifinal, org1_clean_1, org2_clean_1) %>% sample_n(50) %>% view()
 
 
 
-# Step 5: executor OR sponsor ------------------------------
-# 5.1
-# приводимо до нижнього регістру в словнику
-org_dict[, executor_name := str_to_lower(str_trim(executor_name))]
-org_dict[, sponsor_name := str_to_lower(str_trim(sponsor_name))]
 
-
-# Функція для визначення типу організації з словника
-get_executor_sponsor <- function(org, dict) {
-  if (is.na(org) || org == "ні") return("Немає організації")
-  if (org %in% dict$executor_name) return("Виконавець")
-  if (org %in% dict$sponsor_name) return("Замовник")
-  return(NA_character_)
-}
-
-# Створюємо дві окремі змінні для кожної організації
-filtered_df[, executor_sponsor_1 := sapply(org1_final, get_executor_sponsor, dict = org_dict)]
-filtered_df[, executor_sponsor_2 := sapply(org2_final, get_executor_sponsor, dict = org_dict)]
-
-
-# 5.2 Для рядків, де executor_sponsor_1 == NA, викликаємо GPT
-filtered_df[is.na(executor_sponsor_1), executor_sponsor_1 := unlist(
-  future_lapply(org1_final, function(org_name) {
-    if (is.na(org_name) || org_name == "ні" || !nzchar(org_name)) return("none")
-    
-    prompt <- paste0(
-      "Наведена організація є виконавцем соціологічних опитувань?\n",
-      "Відповідай лише 'Виконавець' або 'Ні'.\n\n",
-      "Організація: ", org_name
-    )
-    
-    # prompt <- paste0(
-    #   "Persona: Ти — експерт з класифікації організацій.
-    #   Завдання: Визнач, чи є вказана назва дослідницькою організацією, соціологічною службою або аналітичним центром, що проводить власні опитування.
-    #   Контекст: — Якщо це ЗМІ, сайт новин, телеканал або блог — відповідай 'Ні'. — Якщо це соціологічна компанія чи інститут — відповідай 'Виконавець'.
-    #   Формат: Лише одне слово: 'Виконавець' або 'Ні'.
-    #   
-    #   Організація: ", org_name
-    # )
-    
-    res <- request_with_retry(prompt, "gpt-4o-mini")
-    
-    # нормалізація відповіді
-    if (is.na(res) || !nzchar(res)) return("Замовник")
-    clean <- str_remove_all(str_to_lower(str_trim(res)), "[[:punct:]]")
-    
-    if (str_detect(clean, "виконавець")) {
-      return("Виконавець")
-    } else if (str_detect(clean, "ні")) {
-      return("Замовник")
-    }
-  })
-)]
-
-# 5.3 Те саме для executor_sponsor_2
-filtered_df[is.na(executor_sponsor_2), executor_sponsor_2 := unlist(
-  future_lapply(org2_final, function(org_name) {
-    if (is.na(org_name) || org_name == "ні" || !nzchar(org_name)) return("none")
-    
-    prompt <- paste0(
-      "Наведена організація є виконавцем соціологічних опитувань?\n",
-      "Відповідай лише 'Виконавець' або 'Ні'.\n\n",
-      "Організація: ", org_name
-    )
-    
-    # prompt <- paste0(
-    #   "Persona: Ти — експерт з класифікації організацій.
-    #   Завдання: Визнач, чи є вказана назва дослідницькою організацією, соціологічною службою або аналітичним центром, що проводить власні опитування.
-    #   Контекст: — Якщо це ЗМІ, сайт новин, телеканал або блог — відповідай 'Ні'. — Якщо це соціологічна компанія чи інститут — відповідай 'Виконавець'.
-    #   Формат: Лише одне слово: 'Виконавець' або 'Ні'.
-    #   
-    #   Організація: ", org_name
-    # )
-    
-    res <- request_with_retry(prompt, "gpt-4o-mini")
-    
-    if (is.na(res) || !nzchar(res)) return("Замовник")
-    clean <- str_remove_all(str_to_lower(str_trim(res)), "[[:punct:]]")
-    
-    if (str_detect(clean, "виконавець")) {
-      return("Виконавець")
-    } else if (str_detect(clean, "ні")) {
-      return("Замовник")
-    }
-  })
-)]
-
-# Прибираємо "Немає організації" з executor_sponsor_2
-filtered_df[executor_sponsor_2 == "Немає організації", executor_sponsor_2 := NA_character_]
-
-# подивитись розподіли
-table(filtered_df$executor_sponsor_1)
-table(filtered_df$executor_sponsor_2)
-
-
-
-# Step 6: Quality of reporting -------------------------------------
-
-# створюємо змінні sponsor і survey_org
-filtered_df[, sponsor := fifelse(
-  (!is.na(executor_sponsor_1) & executor_sponsor_1 == "Замовник") |
-    (!is.na(executor_sponsor_2) & executor_sponsor_2 == "Замовник"),
-  "yes", "no"
-)]
-
-filtered_df[, survey_org := fifelse(
-  (!is.na(executor_sponsor_1) & executor_sponsor_1 == "Виконавець") |
-    (!is.na(executor_sponsor_2) & executor_sponsor_2 == "Виконавець"),
-  "yes", "no"
-)]
-
-
+# Step 5: Quality of reporting
 
 # Replace with your actual text vector
 texts <- filtered_df$Текст
@@ -614,13 +476,18 @@ make_prompt <- function(texts) {
    - AAPOR Definition: Name the party(ies) who conducted the research.
 
 3. Дати проведення опитування (Dates of Data Collection):
-   - Шукай: конкретні дати збору даних (наприклад, 'з 15 січня по 10 березня 2019 року').
-   - AAPOR Definition: Disclose the dates of data collection. If this is a content analysis, include the dates of the content analyzed.
+   - Шукай: часові межі збору даних.
+   - Критерій 'так': вказано конкретні дні (наприклад, '10-15 березня') АБО вказано місяць і рік (наприклад, 'у березні 2024 року').
+   - Критерій 'ні': вказано ЛИШЕ рік (наприклад, 'опитування 2023 року') або дати відсутні.
+   - AAPOR Definition: Disclose the dates of data collection.
 
 4. Генеральна сукупність (Population Under Study):
-   - Шукай: опис того, кого саме опитували (вік, регіон, специфічні характеристики).
-   - AAPOR Definition: Researchers will be specific about the decision rules used to define the population when describing the study population, including location, age, other social or demographic characteristics (e.g., persons who access the internet).
-
+   - Шукай: кого саме репрезентує вибірка.
+   - Критерій 'так':
+     a) Для загальних опитувань: достатньо загальної вказівки на громадянство чи країну (наприклад, 'опитано українців', 'населення України', 'більшість громадян вважає').
+     b) Для специфічних груп: вказано конкретні характеристики (наприклад, 'ВПО', 'лікарі', 'молодь 18-25 років').
+   - AAPOR Definition: Researchers will be specific about the decision rules used to define the population (location, age, other social or demographic characteristics).
+   
 5. Розмір вибірки (Sample Sizes):
    - Шукай: кількість опитаних респондентів (загальна або по групах).
    - AAPOR Definition: Provide sample sizes for each mode of data collection (for surveys include sample sizes for each frame, list, or panel used).
@@ -689,7 +556,8 @@ filtered_df <- cbind(filtered_df, meta_dt)
 
 
 
-# Step 7: Рівень дотримання стандартів публікації результатів
+
+# Step 6: Рівень дотримання стандартів публікації результатів
 level_df <- copy(filtered_df)
 
 # перетворення yes/no на 1/0
@@ -721,7 +589,9 @@ filtered_df <- cbind(filtered_df, level_df[, .(compliance_standards, compliance_
 filtered_df[, .N, by = compliance_level][order(compliance_level)]
 
 
-# Step 8: Closed topic coding -------------------------------------------------
+
+
+# Step 7: Closed topic coding
 # Define the list of topics 
 
 # Define topics and their definitions as a table
@@ -785,7 +655,6 @@ topics_definitions <- data.frame(
 
 
 # Classification Function ---------------------------------------------------
-
 classify_topic <- function(text) {
   if (!is.na(text) && nzchar(text)) {
     prompt <- paste0(
@@ -809,8 +678,8 @@ classify_topic <- function(text) {
   }
 }
 
-# 8.1: Test Classification ------------------------------------------------
 
+# 7.1: Test Classification ------------------------------------------------
 cat("Testing classification on 10 rows...\n")
 
 test_indices <- sample(seq_len(nrow(filtered_df)), 10)
@@ -825,13 +694,14 @@ test_df <- data.table(
 
 print(test_df)
 
-# 8.2: Full Classification ------------------------------------------------
 
+# 7.2: Full Classification ------------------------------------------------
 cat("Running full classification...\n")
 
 filtered_df[, classified_topic := future_lapply(survey_topic, classify_topic)]
 
 filtered_df[, classified_topic := unlist(classified_topic)]
+
 
 # Summary --------------------------------------------------------------------
 cat("Total classified rows:", sum(!is.na(filtered_df$classified_topic)), "\n")
@@ -839,8 +709,9 @@ cat("Total rows:", nrow(filtered_df), "\n")
 
 
 
-# Step 9: 
-# 9.1: збір посилань з новин із фільтром за словником ---------------------------
+
+# Step 8: 
+# 8.1: збір посилань з новин із фільтром за словником ---------------------------
 # 1 Створюємо патерн із даних у Excel та зберігаємо крапки
 executor_links_clean <- na.omit(org_dict$executor_links)
 executor_links_clean <- gsub("\\.", "\\\\.", executor_links_clean) # екрануємо крапки
@@ -881,6 +752,7 @@ filtered_df[, checkthelinks := ifelse(
 )]
 
 
+
 #--------------------------------------------------------------------------
 # валідація посилань вручну (checkthelinks = 'Перевірити')
 # прибрати помилкові посилання з collected_links
@@ -892,77 +764,21 @@ new_df <- read_excel("Оновлений масив згадок.xlsx") |> as.da
 #--------------------------------------------------------------------------
 
 
-# 9.2: Наявність посилання на звіт/прес-реліз ----------------------------------
+
+# 8.2: Наявність посилання на звіт/прес-реліз ----------------------------------
 new_df[, report := ifelse(is.na(collected_links), "Ні", "Так")]
 table(new_df$report) #розподіл
 
 
 
 
-# Step 10: Ідентифікація висвітлення однакових опитувань
-# 10.1: ідентифікація однакових опитувань через посилання ------------------------
-
-# створюємо "очищену" версію посилань для можливого порівняння
-new_df[, collected_links_clean := sapply(collected_links, function(x) {
-  if (is.na(x)) return(NA_character_)
-  links <- strsplit(x, ";")[[1]]
-  links <- trimws(links)
-  links <- gsub("^(https?://)?(www\\.)?|[?&]page=1", "", links, ignore.case = TRUE)
-  paste(links, collapse = "; ")
-})]
-
-
+# Step 9: Ідентифікація висвітлення однакових опитувань
 new_df[, survey_id := NA_character_]
 
-# 1 Створюємо допоміжний ключ, який трактує пусті/NA як NA
-new_df[, .key := fifelse(
-  is.na(collected_links_clean) | str_trim(collected_links_clean) == "",
-  NA_character_,
-  collected_links_clean
-)]
-
-# 2 Рахуємо частоти для кожного ключа (тільки не-NA)
-freq <- new_df[!is.na(.key), .N, by = .key]
-
-# 3 Беремо тільки ті, що зустрічаються принаймні двічі та присвоюємо survey_id
-dup_keys <- freq[N > 1, .key]
-if (length(dup_keys) > 0) {
-  new_df[!is.na(.key) & .key %in% dup_keys,
-         survey_id := paste0("S", as.integer(factor(.key, levels = dup_keys)))]
-}
-
-new_df[, .key := NULL]
-
-#огляд
-new_df[!is.na(survey_id), .N, by = survey_id][order(-N)]
-
-
-### Узгодження тем для однакових груп survey_id -------------------------
-
-# визначаємо домінуючу тему групи
-dominant_topics <- new_df[!is.na(survey_id),
-                          .SD[which.max(tabulate(match(classified_topic, unique(classified_topic))))][1],
-                          by = survey_id
-][, .(survey_id, classified_topic)]
-
-# оновлення тем
-new_df[dominant_topics, on = "survey_id",
-       classified_topic := i.classified_topic]
-
-
-
-
-# 10.2: Ідентифікація однакових через умови -------------------------------
-
+# Підготовка дати
 new_df[, pub_date := as.Date(substr(`Дата виходу`, 1, 10))]
-new_df[, has_id := !is.na(survey_id)]
 
-# новини без survey_id
-df_no_id <- copy(new_df[has_id == FALSE])
-
-df_no_id[, new_survey_id := NA_character_]
-
-# Початковий лічильник для survey_id
+# Початковий лічильник — максимальний існуючий survey_id
 start_id <- ifelse(
   any(!is.na(new_df$survey_id)),
   suppressWarnings(max(as.integer(gsub("\\D", "", new_df$survey_id)), na.rm = TRUE)),
@@ -970,47 +786,46 @@ start_id <- ifelse(
 )
 counter <- start_id
 
-# Пошук груп схожих опитувань
-for (i in seq_len(nrow(df_no_id))) {
-  if (!is.na(df_no_id$new_survey_id[i])) next  # пропускаємо, якщо вже є айді
+# Проходимо по всіх рядках, де survey_id ще немає
+for (i in seq_len(nrow(new_df))) {
   
-  row_i <- df_no_id[i]
+  if (!is.na(new_df$survey_id[i])) next
   
-  # умови
-  matches <- df_no_id[
-    is.na(new_survey_id) &
-      classified_topic == row_i$classified_topic &
-      abs(as.numeric(pub_date - row_i$pub_date)) <= 5 &
+  row_i <- new_df[i]
+  
+  # умови пошуку однакових опитувань
+  matches <- which(
+    is.na(new_df$survey_id) &
+      new_df$classified_topic == row_i$classified_topic &
+      abs(as.numeric(new_df$pub_date - row_i$pub_date)) <= 5 &
       (
-        (!is.na(org1_final) & org1_final %in% c(row_i$org1_final, row_i$org2_final)) |
-          (!is.na(org2_final) & org2_final %in% c(row_i$org1_final, row_i$org2_final))
-      ),
-    which = TRUE
-  ]
+        (!is.na(new_df$org1_final) & new_df$org1_final %in% c(row_i$org1_final, row_i$org2_final)) |
+          (!is.na(new_df$org2_final) & new_df$org2_final %in% c(row_i$org1_final, row_i$org2_final))
+      )
+  )
   
-
+  # Якщо знайдено більше одного рядка, створюємо нову групу
   if (length(matches) > 1) {
     counter <- counter + 1
-    df_no_id[matches, new_survey_id := paste0("S", counter)]
+    new_df[matches, survey_id := paste0("S", counter)]
   }
 }
 
-# повертаємо в масив
-new_df[has_id == FALSE, survey_id := df_no_id$new_survey_id]
-new_df[, c("pub_date", "has_id") := NULL]
+new_df[, pub_date := NULL] #прибираємо технічну колонку
 
-# огляд
+# Огляд результату
 new_df[!is.na(survey_id), .N, by = survey_id][order(-N)]
 
 
 #--------------------------------------------------------------------------
-# об'єднання груп (10.1 та 10.2) (survey_id)
+# валідація найбільш згаданих (survey_id)
 save_partial_results(new_df, "survey_id.xlsx")
 
 
 # завантажити фінальний масив 'Фінальний масив.xlsx' для побудови графіків
 final_df <- read_excel("Фінальний масив.xlsx") |> as.data.table()
 #--------------------------------------------------------------------------
+
 
 
 
