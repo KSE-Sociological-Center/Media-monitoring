@@ -1001,9 +1001,19 @@ ggsave(
   dpi      = 300
 )
 
+# 4.7 10 випадкових прикладів новин для кожної теми
+sampled_by_topic <- filtered_df[
+  , .SD[sample(.N, min(.N, 10))],   # якщо в групі менше 10 рядків, взяти всі
+  by = classified_topic
+]
+
+sampled_by_topic %>%
+  select(classified_topic, Текст, URL) %>%
+  View()
 
 
-# 5 top-10 survey_id
+
+# 5 top 10 survey_id
 top10_surveys <- filtered_df %>%
   filter(!is.na(survey_id)) %>%
   count(survey_id, name = "n") %>%
@@ -1041,97 +1051,20 @@ View(top10_surveys)
 
 
 
-
-
-#OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD
-
-# -----------------------------------------------------------------------------
-# 2. Top 10 News by Views in February -----------------------------------------
-# -----------------------------------------------------------------------------
-
-top_10_feb <- feb_df %>%
+# 6 Top 10 news by views
+top10_views <- filtered_df %>%
   filter(!is.na(`Сумарна кількість переглядів разом із дублями`)) %>%
   slice_max(order_by = `Сумарна кількість переглядів разом із дублями`, n = 10) %>%
   arrange(desc(`Сумарна кількість переглядів разом із дублями`)) %>%
   select(
     month_year,
+    URL,
     'Текст',
     Заголовок,
     survey_topic,
     classified_topic,
-    `Сумарна кількість переглядів разом із дублями`,
-    `Тип ЗМІ`,
-    Джерело,
-    `Рівень видання`
+    `Сумарна кількість переглядів разом із дублями`
   )
 
-# Відображаємо результати
-print(top_10_feb)
-
-
-# -----------------------------------------------------------------------------
-# Sampling a Few Example News Items by Topic (for February) ------------------
-# -----------------------------------------------------------------------------
-
-# Для кожної теми (classified_topic) випадково вибрати до 10 рядків:
-sampled_by_topic <- feb_df[
-  , .SD[sample(.N, min(.N, 10))],   # якщо в групі менше 10 рядків, взяти всі
-  by = classified_topic
-]
-
-# Виведіть на екран результати (загальна кількість у кожному підгрупі може бути ≤ 10):
-print(sampled_by_topic)
-
-# Або переглянути у табличному вигляді (відкриється в RStudio Viewer):
-sampled_by_topic %>%
-  select(classified_topic, Текст) %>%
-  View()
-
-
-# -----------------------------------------------------------------------------
-# 3. Побудова Графіка ---------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-top20 <- feb_df[
-  !is.na(org_final),
-  .N,
-  by = org_final
-][order(-N)][1:20]
-
-org_plot <- ggplot(top20, aes(x = reorder(org_final, N), y = N)) +
-  geom_col(fill = "steelblue") +
-  coord_flip() +
-  labs(
-    title = "Топ-20 організацій за кількістю згадок",
-    x     = NULL,
-    y     = "Кількість згадок"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 11),
-    axis.text.x = element_text(size = 10),
-    plot.title  = element_text(size = 14, face = "bold")
-  )
-
-# Відобразити графік
-print(org_plot)
-
-ggsave(filename = "top20_organizations.png", plot = org_plot, width = 8, 
-       height = 6, dpi = 300)
-
-
-
-write.csv(final_df, 'final.csv')
-
-final_df <- feb_df %>% 
-  rename(
-    organisation_name_raw = organisation,
-    organisation_name_clean = org_final
-  ) %>%
-  rename_with(
-    .cols = c("survey_focus", "sponsor", "survey_org", "dates", "population", "sample_size",
-              "sampling_method", "margin_of_error", "weighting", 
-              "survey_mode", "question_text", "percentages"),
-    .fn = ~ paste0(.x, "_check")
-  ) %>% 
-  select(-c(org_clean, org_clean_1))
+# Результати
+View(top10_views)
