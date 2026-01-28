@@ -46,7 +46,7 @@ monitoring_df[, month_year := format(`Дата виходу`, "%Y-%m")]
 
 
 # 3. OpenAI Config & Helper
-api_key <- 
+api_key <- "your-api-key"
 hey_chatGPT <- function(prompt, model) {
   response <- httr2::request("https://api.openai.com/v1/chat/completions") %>%
     httr2::req_headers(
@@ -450,7 +450,7 @@ meta_labels <- c(
   "Метод вибірки",
   "Похибка вибірки",
   "Застосування вагових коефіцієнтів",
-  "Спосіб проведення опитування",
+  "Метод опитування",
   "Текст запитання"
 )
 names(meta_labels) <- meta_keys
@@ -501,7 +501,7 @@ make_prompt <- function(texts) {
    - Шукай: інформацію про зважування даних (weighting) для корекції вибірки.
    - AAPOR Definition: Describe how the weights were calculated, including the variables used and the sources of the weighting parameters.
 
-9. Спосіб проведення опитування (Method(s) and Mode(s) of Data Collection):
+9. Метод проведення опитування (Method(s) and Mode(s) of Data Collection):
    - Шукай: метод контакту (телефон, CATI, онлайн-панель, особисте інтерв'ю, CAPI, пошта).
    - AAPOR Definition: Include a description of all mode(s) used to contact participants or collect data or information (e.g., CATI, CAPI, ACASI, IVR, mail, Web).
 
@@ -518,7 +518,7 @@ make_prompt <- function(texts) {
 Метод вибірки: [так/ні]
 Похибка вибірки: [так/ні]
 Застосування вагових коефіцієнтів: [так/ні]
-Спосіб проведення опитування: [так/ні]
+Метод проведення опитування: [так/ні]
 Текст запитання: [так/ні]
 "
   
@@ -794,20 +794,24 @@ org_plot <- ggplot(top20, aes(x = reorder(org, proportion), y = proportion)) +
   coord_flip() +
   geom_text(
     aes(label = scales::percent(proportion, accuracy = 0.1)),
-    hjust = -0.1,
-    size = 3
+    hjust = -0.05,
+    size = 4.5,
+    fontface = "bold"
   ) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1),
+                     expand = expansion(mult = c(0, 0.2))) +
   labs(
-    title = "Частота згадок організацій у 3 кварталі 2025 року",
+    title = "Частота згадок організацій у 3-му кварталі 2025 року",
     x     = NULL,
     y     = "Частка згадок (%)"
   ) +
-  theme_minimal() +
+  theme_classic() +
   theme(
-    axis.text.y = element_text(size = 11),
-    axis.text.x = element_text(size = 10),
-    plot.title  = element_text(size = 14, face = "bold")
+    axis.text.y = element_text(size = 16),
+    axis.text.x = element_text(size = 11),
+    axis.title.x = element_text(size = 14),
+    plot.title  = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.title.position   = "plot"
   )
 
 # Відобразити графік
@@ -818,7 +822,7 @@ ggsave(
   filename = "top20_organizations.png",
   plot     = org_plot,
   width    = 12,
-  height   = 6,
+  height   = 8,
   dpi      = 300
 )
 
@@ -840,24 +844,28 @@ meta_yes <- sapply(meta_keys, function(col) {
 meta_plot <- ggplot(meta_yes, aes(x = proportion, y = label_ua)) +
   geom_col(fill = "deepskyblue") +
   geom_text(
-    aes(label = scales::percent(proportion, accuracy = 0.1)),
+    aes(label = scales::percent(proportion, accuracy = 1)),
     hjust = -0.05,
-    size = 3
+    size = 4.5,
+    fontface = "bold"
   ) +
   scale_x_continuous(
-    labels = scales::percent_format(accuracy = 0.1),
-    expand = expansion(mult = c(0, 0.2))  # простір справа для підписів
+    limits = c(0, 1),
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0))
   ) +
   labs(
-    title = "Наявність методологічної інформації в медіапублікаціях",
+    title = "Наявність методологічної інформації в медіапублікаціях у 3-му кварталі 2025 року",
     x     = "Частка новин (%)",
     y     = NULL
   ) +
   theme_classic() +
   theme(
-    axis.text.y     = element_text(size = 12),
-    axis.text.x     = element_text(size = 10),
-    plot.title      = element_text(size = 16, face = "bold"),
+    axis.text.y     = element_text(size = 16),
+    axis.text.x     = element_text(size = 11),
+    axis.title.x = element_text(size = 14),
+    plot.title      = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.title.position   = "plot",
     legend.position = "none"
   )
 
@@ -893,21 +901,24 @@ compliance_summary$compliance_level <- factor(
 
 # 3.3 Палітра
 n_levels <- nrow(compliance_summary)
-colors <- scales::seq_gradient_pal("deepskyblue", "dodgerblue4", "Lab")(seq(0, 1, length.out = n_levels))
+colors <- scales::seq_gradient_pal("dodgerblue4", "deepskyblue", "Lab")(seq(0.2, 1, length.out = n_levels))
 
 # 3.4 Побудова графіка
 compliance_plot <- ggplot(compliance_summary, aes(x = "", y = proportion, fill = compliance_level)) +
   geom_col(width = 1, color = "white") +
   coord_polar(theta = "y") +
-  geom_text(aes(label = label), position = position_stack(vjust = 0.5)) +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 6) +
   scale_fill_manual(values = colors) +
   labs(
-    title = "Рівень дотримання стандартів розкриття інформації",
+    title = "Рівень дотримання стандартів розкриття інформації\nу 3-му кварталі 2025 року",
     fill = "Рівень:"
   ) +
   theme_void() +
   theme(
-    plot.title = element_text(size = 16, face = "bold")
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.title.position   = "plot",
+    legend.title = element_text(size = 13, face = "bold"),
+    legend.text  = element_text(size = 12),
   )
 
 # Відобразити графік
@@ -917,8 +928,8 @@ print(compliance_plot)
 ggsave(
   filename = "compliance_level.png",
   plot = compliance_plot,
-  width = 6,
-  height = 6,
+  width = 8,
+  height = 8,
   dpi = 300
 )
 
@@ -932,7 +943,7 @@ topic_translation <- c(
   "Economic and Business Climate" = "Економіка та бізнес-клімат",
   "Employment and Labor Market" = "Зайнятість і ринок праці",
   "Energy" = "Енергетика",
-  "Foreign Relations / International Affairs" = "Зовнішні справи",
+  "Foreign Relations / International Affairs" = "Міжнародні відносини",
   "Healthcare" = "Охорона здоров’я",
   "Immigration" = "Міграція",
   "Infrastructure and Urban Planning" = "Інфраструктура і містопланування",
@@ -971,24 +982,27 @@ classified_plot_all <- ggplot(
 ) +
   geom_col(fill = "deepskyblue") +
   geom_text(
-    aes(label = scales::percent(proportion, accuracy = 1)),
+    aes(label = scales::percent(proportion, accuracy = 0.1)),
     hjust = -0.1,
-    size = 3
+    size = 4.5,
+    fontface = "bold"
   ) +
   scale_x_continuous(
     labels = scales::percent_format(),
     expand = expansion(mult = c(0, 0.1))
   ) +
   labs(
-    title = "Найпопулярніші теми опитувань у 3 кварталі 2025 року",
+    title = "Найпопулярніші теми опитувань у 3-му кварталі 2025 року",
     x = "Частка новин (%)",
     y = NULL
   ) +
   theme_classic() +
   theme(
-    axis.text.y      = element_text(size = 12),
-    axis.text.x      = element_text(size = 10),
-    plot.title       = element_text(size = 16, face = "bold"),
+    axis.text.y      = element_text(size = 16),
+    axis.text.x      = element_text(size = 11),
+    axis.title.x = element_text(size = 14),
+    plot.title       = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.title.position   = "plot",
     legend.position  = "none"
   )
 
@@ -1048,23 +1062,3 @@ top10_surveys <- filtered_df %>%
 
 # 5.3 результат
 View(top10_surveys)
-
-
-
-# 6 Top 10 news by views
-top10_views <- filtered_df %>%
-  filter(!is.na(`Сумарна кількість переглядів разом із дублями`)) %>%
-  slice_max(order_by = `Сумарна кількість переглядів разом із дублями`, n = 10) %>%
-  arrange(desc(`Сумарна кількість переглядів разом із дублями`)) %>%
-  select(
-    month_year,
-    URL,
-    'Текст',
-    Заголовок,
-    survey_topic,
-    classified_topic,
-    `Сумарна кількість переглядів разом із дублями`
-  )
-
-# Результати
-View(top10_views)
