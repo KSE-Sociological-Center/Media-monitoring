@@ -8,6 +8,7 @@ library(future.apply)
 library(stringr)
 library(scales)
 library(rvest)
+library(progressr)
 plan(multisession, workers = parallel::detectCores() - 1)
 
 
@@ -556,8 +557,77 @@ save_partial_results(filtered_df, prefix = "step5")
 
 
 
-
 # Step 6: Рівень дотримання стандартів публікації результатів
+
+# Step 6.1: Classify survey role in publication (Основне / Згадка)
+filtered_df[, Stype := NA_character_]
+
+# 2) Промпт
+prompt_stype <- "Виконуй роль аналітика контенту в межах формалізованого контент-аналізу.
+Завдання: класифікуй текст за роллю соціологічного опитування у публікації.
+Логіка класифікації:
+1) Основне, якщо:
+- більша частина тексту (≈50% або більше) присвячена результатам опитування. Опитування є головною темою матеріалу;
+- текст містить результати опитування разом із коментарями та інфографіками, що пояснюють ці результати.
+2) Згадка, якщо:
+- опитування згадується побіжно лише як аргумент;
+- наведено окремий показник без розгорнутого аналізу;
+- головна тема матеріалу інша (політична подія, заява, конфлікт тощо).
+Приклади:
+1. Текст: «За даними опитування, 67% українців підтримують євроінтеграцію. Серед молоді цей показник сягає 82%. Опитування проводилось у січні 2024 року, вибірка — 1200 осіб. Найвища підтримка зафіксована на заході країни — 91%.»
+Відповідь: Основне
+2. Текст: «Президент підписав указ про нові санкції. Експерти вважають це вимушеним кроком. За даними одного з опитувань, більшість громадян підтримує жорсткі заходи. Документ набуде чинності наступного місяця.»
+Відповідь: Згадка
+КРИТИЧНО ВАЖЛИВО: твоя відповідь повинна містити ТІЛЬКИ одне слово — або Основне, або Згадка.
+Будь-яка інша відповідь є помилкою. Без пояснень. Без розділових знаків. Без пробілів."
+
+# 3) Функція парсингу
+parse_stype <- function(res) {
+  if (is.na(res) || !nzchar(res)) return(NA_character_)
+  res_clean <- str_trim(res)
+  if (res_clean == "Основне") return("Основне")
+  if (res_clean == "Згадка") return("Згадка")
+  return(NA_character_)
+}
+
+# 4) Run in parallel із retry на невалідну відповідь
+handlers(global = TRUE)
+
+n <- nrow(filtered_df)
+max_attempts <- 3
+
+with_progress({
+  p <- progressor(steps = n)
+  results_stype <- future_lapply(seq_len(n), function(i) {
+    p()
+    text <- filtered_df$Текст[i]
+    full_prompt <- paste(prompt_stype, text, sep = "\n\n")
+    
+    stype <- NA_character_
+    for (attempt in seq_len(max_attempts)) {
+      res <- request_with_retry(full_prompt, "gpt-4.1-mini")
+      stype <- parse_stype(res)
+      if (!is.na(stype)) break
+      full_prompt <- paste(full_prompt,
+                           "\n\nПОПЕРЕДЖЕННЯ: ти повернув невалідну відповідь. Відповідай ТІЛЬКИ одним словом: Основне або Згадка.",
+                           sep = "")
+    }
+    
+    list(Stype = stype)
+  })
+})
+
+# 5) Assign back
+res_stype_dt <- data.table::rbindlist(results_stype)
+filtered_df[, Stype := res_stype_dt$Stype]
+
+# 6) Збереження
+save_partial_results(filtered_df, prefix = "step6.1")
+
+
+
+
+# Step 6.2: Transparency Index (для "Основне")
 level_df <- copy(filtered_df)
 
 # перетворення yes/no на 1/0
@@ -589,7 +659,7 @@ filtered_df <- cbind(filtered_df, level_df[, .(compliance_standards, compliance_
 filtered_df[, .N, by = compliance_level][order(compliance_level)]
 
 # Save
-save_partial_results(filtered_df, prefix = "step6")
+save_partial_results(filtered_df, prefix = "step6.2")
 
 
 
@@ -887,6 +957,7 @@ ggsave(
 # 3 Compliance level
 # 3.1 Підрахунок часток
 compliance_summary <- filtered_df %>%
+  filter(Stype == "Основне") %>%
   count(compliance_level) %>%
   mutate(
     proportion = n / sum(n),
