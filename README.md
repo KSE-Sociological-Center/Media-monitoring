@@ -8,3 +8,4 @@
 
 ## Пов'язані публікації
 1. Гацко, В. (2025). Публікація результатів соціологічних опитувань у ЗМІ: як подають і про що розповідають? URL: https://voxukraine.org/publikatsiya-rezultativ-sotsiologichnyh-opytuvan-u-zmi-yak-podayut-i-pro-shho-rozpovidayut
+2. Андреєв, Д. (2026). Соціологія між рядків: що та як українські медіа розповідають про громадську думку в час війни URL: https://voxukraine.org/sotsiologiya-mizh-ryadkiv-pro-shho-ta-yak-ukrayinski-media-rozpovidayut-pro-gromadsku-dumku-v-chas-vijny
