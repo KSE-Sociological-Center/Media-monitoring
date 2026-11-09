@@ -7,6 +7,6 @@
 У межах проєкту застосовуються інструменти штучного інтелекту для автоматизованого виокремлення інформації про соціологічні опитування та ручна верифікація отриманих результатів.
 
 ## Пов'язані публікації
-1. Андреєв Д., Антонець К. Побачити правду крізь білий шум: як відрізнити якісне висвітлення досліджень в онлайн-медіа. URL: https://voxukraine.org/pobachyty-pravdu-kriz-bilyj-shum-yak-vidriznyty-yakisne-vysvitlennya-doslidzhen-v-onlajn-media
+1. Андреєв Д., Антонець К. (2026). Побачити правду крізь білий шум: як відрізнити якісне висвітлення досліджень в онлайн-медіа. URL: https://voxukraine.org/pobachyty-pravdu-kriz-bilyj-shum-yak-vidriznyty-yakisne-vysvitlennya-doslidzhen-v-onlajn-media
 2. Андреєв Д. (2026). Соціологія між рядків: що та як українські медіа розповідають про громадську думку в час війни. URL: https://voxukraine.org/sotsiologiya-mizh-ryadkiv-pro-shho-ta-yak-ukrayinski-media-rozpovidayut-pro-gromadsku-dumku-v-chas-vijny
 3. Гацко В. (2025). Публікація результатів соціологічних опитувань у ЗМІ: як подають і про що розповідають? URL: https://voxukraine.org/publikatsiya-rezultativ-sotsiologichnyh-opytuvan-u-zmi-yak-podayut-i-pro-shho-rozpovidayut
